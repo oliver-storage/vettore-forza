@@ -845,6 +845,28 @@ td.acoes { text-align: right; white-space: nowrap; }
   flex: 0 0 auto;
 }
 
+.tabela-historico {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.tabela-historico th, .tabela-historico td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--linha);
+  white-space: nowrap;
+}
+.tabela-historico th {
+  color: var(--tinta-70);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.tabela-historico .tag-entrada { color: var(--marca); font-weight: 600; }
+.tabela-historico .tag-saida { color: var(--alerta); font-weight: 600; }
+.tabela-historico-wrap { overflow-x: auto; }
+
 .alca-arrastar {
   cursor: grab;
   color: var(--tinta-40);

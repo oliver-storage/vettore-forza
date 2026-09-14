@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<link rel="icon" href="favicon.ico?v=0.26.0">
+<link rel="icon" href="favicon.ico?v=0.28.0">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vettore — Prestação de Contas</title>
@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="css/estilos.css?v=0.26.0">
+<link rel="stylesheet" href="css/estilos.css?v=0.28.0">
 </head>
 <body>
 
@@ -80,6 +80,7 @@
     <button class="aba" data-aba="inicio"        role="tab" aria-selected="true">Início</button>
     <button class="aba" data-aba="prestacoes"    role="tab" aria-selected="false" data-permissao="prestacao.ver">Prestações</button>
     <button class="aba" data-aba="fornecedores"  role="tab" aria-selected="false" data-permissao="prestacao.ver">Fornecedores</button>
+    <button class="aba" data-aba="farmacia"      role="tab" aria-selected="false" data-permissao="farmacia.ver">Farmácia</button>
     <button class="aba" data-aba="configuracoes" role="tab" aria-selected="false" data-permissao="config.acessar">Configurações</button>
   </nav>
 
@@ -147,15 +148,6 @@
         <div id="pc-blocos-lista"></div>
 
         <div class="painel">
-          <header><h3>Fornecedores</h3></header>
-          <div class="conteudo">
-            <div id="pc-lista-fornecedores"></div>
-            <button class="botao neutro pequeno" type="button" id="pc-add-fornecedor"
-                    data-permissao="prestacao.criar">+ Adicionar fornecedor</button>
-          </div>
-        </div>
-
-        <div class="painel">
           <div class="conteudo">
             <button class="botao" type="button" id="pc-baixar-tudo">Baixar prestação completa (todos os blocos)</button>
           </div>
@@ -165,6 +157,67 @@
 
     <section class="secao" data-aba="fornecedores" hidden>
       <div class="painel"><div class="vazio">Módulo em construção.</div></div>
+    </section>
+
+    <!-- ================= FARMÁCIA ================= -->
+    <section class="secao" data-aba="farmacia" hidden>
+      <div class="cabecalho-secao">
+        <span class="eyebrow">Farmácia</span>
+        <h2>Movimentação de Estoque</h2>
+        <p>Registre entradas e saídas de material por unidade.</p>
+      </div>
+
+      <div class="painel">
+        <div class="conteudo">
+          <div class="linha-pc" style="grid-template-columns: 1fr 1fr;">
+            <div class="campo">
+              <label for="farm-municipio">Município</label>
+              <select id="farm-municipio"><option value="">Selecione…</option></select>
+            </div>
+            <div class="campo">
+              <label for="farm-instituicao">Instituição</label>
+              <select id="farm-instituicao"><option value="">Selecione o município primeiro</option></select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="farm-conteudo" hidden>
+        <div class="painel">
+          <header><h3>Nova movimentação</h3></header>
+          <div class="conteudo">
+            <div class="linha-pc" style="grid-template-columns: repeat(5, 1fr);">
+              <div class="campo"><label for="farm-data">Data</label><input type="date" id="farm-data"></div>
+              <div class="campo"><label for="farm-turno">Turno</label><select id="farm-turno"></select></div>
+              <div class="campo"><label for="farm-tipo">Tipo</label>
+                <select id="farm-tipo"><option value="Entrada">Entrada</option><option value="Saída">Saída</option></select>
+              </div>
+              <div class="campo"><label for="farm-colaborador">Colaborador</label><input type="text" id="farm-colaborador"></div>
+              <div class="campo"><label for="farm-material">Material</label><input type="text" id="farm-material"></div>
+            </div>
+            <div class="linha-pc" style="grid-template-columns: repeat(5, 1fr);">
+              <div class="campo"><label for="farm-lote">Lote</label><input type="text" id="farm-lote"></div>
+              <div class="campo"><label for="farm-validade">Validade</label><input type="date" id="farm-validade"></div>
+              <div class="campo"><label for="farm-destino">Destino</label><select id="farm-destino"></select></div>
+              <div class="campo"><label for="farm-paciente">Paciente</label><input type="text" id="farm-paciente"></div>
+              <div class="campo"><label for="farm-qtde">Quantidade</label><input type="number" id="farm-qtde" min="0" step="0.01"></div>
+            </div>
+            <div class="campo" style="max-width:220px">
+              <label for="farm-nf">Nota Fiscal</label>
+              <input type="text" id="farm-nf">
+            </div>
+            <div id="farm-aviso" class="aviso" hidden></div>
+            <button class="botao" type="button" id="farm-salvar" data-permissao="farmacia.movimentar">Lançar movimentação</button>
+          </div>
+        </div>
+
+        <div class="painel">
+          <header><h3>Histórico</h3></header>
+          <div class="conteudo">
+            <div id="farm-historico"></div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ================= CONFIGURAÇÕES ================= -->
@@ -611,6 +664,20 @@
           <button type="button" class="botao neutro pequeno" id="remover-logo-uni">Remover</button>
         </div>
       </div>
+
+      <div class="divisor-secao"><span>Blocos e documentos da Prestação de Contas</span></div>
+      <p class="rodape-nota" id="aviso-catalogo-nova-unidade" style="margin:0 0 12px" hidden>
+        Salve a unidade primeiro — o catálogo é copiado do modelo padrão assim que ela é criada.
+      </p>
+      <div id="area-blocos-editor-unidade"></div>
+      <div class="linha-cnpj" style="margin-top:14px" id="linha-novo-bloco-unidade">
+        <div class="campo" style="margin:0;flex:1">
+          <input type="text" id="novo-bloco-nome-unidade" placeholder="Nome do novo bloco (ex: Assistencial)">
+        </div>
+        <button type="button" class="botao neutro" id="adicionar-bloco-unidade"
+                data-permissao="config.unidades.editar">+ Novo bloco</button>
+      </div>
+      <div id="aviso-blocos-editor-unidade" class="aviso" hidden></div>
     </div>
     <footer>
       <button class="botao neutro" data-fechar="modal-unidade">Cancelar</button>
@@ -666,14 +733,15 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-<script src="js/config.js?v=0.26.0"></script>
-<script src="js/api.js?v=0.26.0"></script>
-<script src="js/autenticacao.js?v=0.26.0"></script>
-<script src="js/municipios-ce.js?v=0.26.0"></script>
-<script src="js/cadastros-util.js?v=0.26.0"></script>
-<script src="js/configuracoes.js?v=0.26.0"></script>
-<script src="js/prestacoes.js?v=0.26.0"></script>
-<script src="js/capas.js?v=0.26.0"></script>
-<script src="js/app.js?v=0.26.0"></script>
+<script src="js/config.js?v=0.28.0"></script>
+<script src="js/api.js?v=0.28.0"></script>
+<script src="js/autenticacao.js?v=0.28.0"></script>
+<script src="js/municipios-ce.js?v=0.28.0"></script>
+<script src="js/cadastros-util.js?v=0.28.0"></script>
+<script src="js/configuracoes.js?v=0.28.0"></script>
+<script src="js/prestacoes.js?v=0.28.0"></script>
+<script src="js/capas.js?v=0.28.0"></script>
+<script src="js/farmacia.js?v=0.28.0"></script>
+<script src="js/app.js?v=0.28.0"></script>
 </body>
 </html>

@@ -26,8 +26,8 @@ const ContextoPC = {
   contratoGestaoNumero: ''
 };
 
-let CATALOGO_DOCUMENTOS = null; // cache: carregado uma vez por sessão
-let CATALOGO_BLOCOS = null;     // cache: ordem/rótulo próprio de cada bloco
+let CATALOGO_DOCUMENTOS = null, CATALOGO_DOCUMENTOS_UNIDADE = null; // cache por unidade
+let CATALOGO_BLOCOS = null, CATALOGO_BLOCOS_UNIDADE = null;         // cache por unidade
 
 /* -------- Início: cards de município -------- */
 
@@ -355,19 +355,25 @@ async function salvarCabecalhoPC() {
 
 /* -------- Blocos 2 e 3: documentos -------- */
 
+// O catálogo é por unidade de saúde — cada uma tem seu próprio,
+// copiado do modelo padrão quando a unidade foi criada.
 async function garantirCatalogoDocumentos() {
-  if (CATALOGO_DOCUMENTOS) return CATALOGO_DOCUMENTOS;
-  const { data, error } = await sb.from('documento_catalogo').select('*').order('ordem');
+  if (CATALOGO_DOCUMENTOS && CATALOGO_DOCUMENTOS_UNIDADE === ContextoPC.unidadeId) return CATALOGO_DOCUMENTOS;
+  const { data, error } = await sb.from('documento_catalogo')
+    .select('*').eq('unidade_saude_id', ContextoPC.unidadeId).order('ordem');
   if (error) { console.error('[Vettore] documento_catalogo:', error); return []; }
   CATALOGO_DOCUMENTOS = data;
+  CATALOGO_DOCUMENTOS_UNIDADE = ContextoPC.unidadeId;
   return data;
 }
 
 async function garantirCatalogoBlocos() {
-  if (CATALOGO_BLOCOS) return CATALOGO_BLOCOS;
-  const { data, error } = await sb.from('bloco_catalogo').select('*').order('ordem');
+  if (CATALOGO_BLOCOS && CATALOGO_BLOCOS_UNIDADE === ContextoPC.unidadeId) return CATALOGO_BLOCOS;
+  const { data, error } = await sb.from('bloco_catalogo')
+    .select('*').eq('unidade_saude_id', ContextoPC.unidadeId).order('ordem');
   if (error) { console.error('[Vettore] bloco_catalogo:', error); return []; }
   CATALOGO_BLOCOS = data || [];
+  CATALOGO_BLOCOS_UNIDADE = ContextoPC.unidadeId;
   return CATALOGO_BLOCOS;
 }
 
@@ -375,11 +381,7 @@ async function carregarDocumentos() {
   if (!ContextoPC.prestacaoId) return;
   const catalogo = await garantirCatalogoDocumentos();
   const catalogoBlocos = await garantirCatalogoBlocos();
-  const ordemPorBloco = {};
-  catalogoBlocos.forEach(b => { ordemPorBloco[b.chave] = b.ordem; });
-
-  const blocos = [...new Set(catalogo.map(c => c.bloco))]
-    .sort((a, b) => (ordemPorBloco[a] ?? 999) - (ordemPorBloco[b] ?? 999));
+  const blocos = catalogoBlocos.map(b => b.chave); // já vem ordenado por "ordem"
 
   const [{ data: arquivos, error }, { data: capasDocumento }] = await Promise.all([
     sb.from('prestacao_documento').select('*').eq('prestacao_id', ContextoPC.prestacaoId).order('enviado_em'),
@@ -404,11 +406,19 @@ async function carregarDocumentos() {
   const capaPorChave = {};
   (capasDocumento || []).forEach(c => { capaPorChave[c.chave] = c; });
 
-  // Um painel por bloco encontrado no catálogo — um bloco novo criado
-  // por SQL (registrar_documento) aparece aqui sozinho, sem precisar
-  // mexer em código.
+  // Um painel por bloco do catálogo dessa unidade, na ordem definida em
+  // Configurações. "fornecedores" é especial: mostra os cartões de
+  // empresa em vez de uma lista de documento.
   const listaBlocos = document.getElementById('pc-blocos-lista');
-  listaBlocos.innerHTML = blocos.map((b, i) => `
+  listaBlocos.innerHTML = blocos.map((b, i) => b === 'fornecedores' ? `
+    <div class="painel">
+      <header><h3>${i + 2} · Fornecedores</h3></header>
+      <div class="conteudo">
+        <div id="pc-lista-fornecedores"></div>
+        <button class="botao neutro pequeno" type="button" id="pc-add-fornecedor"
+                data-permissao="prestacao.criar">+ Adicionar fornecedor</button>
+      </div>
+    </div>` : `
     <div class="painel">
       <header><h3>${i + 2} · ${escapar(rotuloDoBloco(b))}</h3></header>
       <div class="conteudo">
@@ -420,9 +430,10 @@ async function carregarDocumentos() {
     </div>`).join('');
   aplicarPermissoesNaTela(listaBlocos);
 
-  blocos.forEach(b => renderBlocoDocumentos(b, `pc-doc-${b}`, catalogo, porChave, capaPorChave));
+  blocos.filter(b => b !== 'fornecedores')
+    .forEach(b => renderBlocoDocumentos(b, `pc-doc-${b}`, catalogo, porChave, capaPorChave));
 
-  await carregarFornecedores();
+  if (blocos.includes('fornecedores')) await carregarFornecedores();
 }
 
 function rotuloDoBloco(chave) {

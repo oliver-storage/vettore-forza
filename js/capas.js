@@ -37,7 +37,7 @@ async function baixarBloco(nomeBloco, rotuloBloco) {
     baixarBytesComoArquivo(bytes, nomeArquivo);
 
     if (ignorados.length) {
-      alert('Baixado. Alguns arquivos não puderam ser incluídos (formato não suportado): ' + ignorados.join(', '));
+      alert('Baixado. Alguns arquivos não puderam ser incluídos:\n' + ignorados.join('\n'));
     }
   } catch (e) {
     alert('Não foi possível gerar o PDF: ' + e.message);
@@ -62,12 +62,8 @@ async function baixarTudo() {
     const ctx = await montarContexto(pdfFinal);
     await desenharCapaPrestacao(pdfFinal, ctx);
 
-    const catalogo = await garantirCatalogoDocumentos();
     const catalogoBlocos = await garantirCatalogoBlocos();
-    const ordemPorBloco = {};
-    catalogoBlocos.forEach(b => { ordemPorBloco[b.chave] = b.ordem; });
-    const blocos = [...new Set(catalogo.map(c => c.bloco))]
-      .sort((a, b) => (ordemPorBloco[a] ?? 999) - (ordemPorBloco[b] ?? 999));
+    const blocos = catalogoBlocos.map(b => b.chave).filter(b => b !== 'fornecedores');
 
     let ignorados = [];
     for (const bloco of blocos) {
@@ -81,7 +77,7 @@ async function baixarTudo() {
     baixarBytesComoArquivo(bytes, nomeArquivo);
 
     if (ignorados.length) {
-      alert('Baixado. Alguns arquivos não puderam ser incluídos (formato não suportado): ' + ignorados.join(', '));
+      alert('Baixado. Alguns arquivos não puderam ser incluídos:\n' + ignorados.join('\n'));
     }
   } catch (e) {
     alert('Não foi possível gerar o PDF: ' + e.message);
@@ -150,8 +146,8 @@ function desenharSubcapa(pdf, ctx, subtitulo) {
 
 async function anexarArquivo(pdfFinal, arquivo, ignorados) {
   try {
-    const bytes = await buscarBytesArquivo(arquivo);
-    if (!bytes) { ignorados.push(arquivo.nome_arquivo); return; }
+    const { bytes, motivo } = await buscarBytesArquivo(arquivo);
+    if (!bytes) { ignorados.push(`${arquivo.nome_arquivo} (${motivo})`); return; }
 
     const tipo = (arquivo.nome_arquivo.split('.').pop() || '').toLowerCase();
     if (tipo === 'pdf') {
@@ -163,11 +159,11 @@ async function anexarArquivo(pdfFinal, arquivo, ignorados) {
       const pagina = pdfFinal.addPage([img.width, img.height]);
       pagina.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
     } else {
-      ignorados.push(arquivo.nome_arquivo);
+      ignorados.push(`${arquivo.nome_arquivo} (formato não suportado)`);
     }
   } catch (e) {
     console.error('[Vettore] anexar', arquivo.nome_arquivo, e);
-    ignorados.push(arquivo.nome_arquivo);
+    ignorados.push(`${arquivo.nome_arquivo} (${e.message || 'erro ao juntar'})`);
   }
 }
 
@@ -177,8 +173,8 @@ async function anexarArquivo(pdfFinal, arquivo, ignorados) {
 async function buscarBytesArquivo(arquivo) {
   if (arquivo.arquivo_drive_id?.includes('/') && !arquivo.arquivo_url) {
     const { data, error } = await sb.storage.from('prestacao-documentos').download(arquivo.arquivo_drive_id);
-    if (error) return null;
-    return new Uint8Array(await data.arrayBuffer());
+    if (error) return { bytes: null, motivo: 'storage: ' + error.message };
+    return { bytes: new Uint8Array(await data.arrayBuffer()), motivo: null };
   }
 
   const { data: { session } } = await sb.auth.getSession();
@@ -186,8 +182,12 @@ async function buscarBytesArquivo(arquivo) {
     `${CONFIG.SUPABASE_URL}/functions/v1/upload-drive?baixar=${encodeURIComponent(arquivo.arquivo_drive_id)}`,
     { headers: { Authorization: 'Bearer ' + session.access_token } }
   );
-  if (!r.ok) return null;
-  return new Uint8Array(await r.arrayBuffer());
+  if (!r.ok) {
+    let motivo = 'HTTP ' + r.status;
+    try { const corpo = await r.json(); if (corpo?.erro) motivo = corpo.erro; } catch {}
+    return { bytes: null, motivo };
+  }
+  return { bytes: new Uint8Array(await r.arrayBuffer()), motivo: null };
 }
 
 function baixarBytesComoArquivo(bytes, nomeArquivo) {

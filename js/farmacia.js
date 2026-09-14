@@ -1,0 +1,170 @@
+/* =============================================================
+   Vettore — farmacia.js — v0.28.0
+   Movimentação de estoque (entrada/saída) por unidade de saúde.
+   ============================================================= */
+
+const ContextoFarmacia = { municipioId: null, unidadeId: null };
+let LISTAS_OPCAO_FARMACIA = null;
+
+async function carregarMunicipiosFarmacia() {
+  const sel = document.getElementById('farm-municipio');
+  const { data, error } = await sb.from('municipio').select('id, nome, uf').eq('ativo', true).order('nome');
+  if (error) { console.error('[Vettore] municípios (farmácia):', error); return; }
+  sel.innerHTML = '<option value="">Selecione…</option>' +
+    (data || []).map(m => `<option value="${m.id}">${escapar(m.nome)}/${escapar(m.uf)}</option>`).join('');
+}
+
+async function carregarInstituicoesFarmacia(municipioId) {
+  const sel = document.getElementById('farm-instituicao');
+  document.getElementById('farm-conteudo').hidden = true;
+  if (!municipioId) {
+    sel.innerHTML = '<option value="">Selecione o município primeiro</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">Carregando…</option>';
+  const { data, error } = await sb.from('unidade_saude')
+    .select('id, nome, tipo').eq('municipio_id', municipioId).eq('ativo', true).order('nome');
+  if (error) { sel.innerHTML = '<option value="">Falha ao carregar</option>'; console.error('[Vettore] unidades (farmácia):', error); return; }
+  sel.innerHTML = '<option value="">Selecione…</option>' +
+    (data || []).map(u => `<option value="${u.id}">${escapar(u.nome)} (${escapar(u.tipo)})</option>`).join('');
+}
+
+async function garantirListasOpcaoFarmacia() {
+  if (LISTAS_OPCAO_FARMACIA) return LISTAS_OPCAO_FARMACIA;
+  const { data, error } = await sb.from('farmacia_lista_opcao').select('*').order('valor');
+  if (error) { console.error('[Vettore] farmacia_lista_opcao:', error); return {}; }
+  LISTAS_OPCAO_FARMACIA = {};
+  (data || []).forEach(o => { (LISTAS_OPCAO_FARMACIA[o.lista] = LISTAS_OPCAO_FARMACIA[o.lista] || []).push(o.valor); });
+  return LISTAS_OPCAO_FARMACIA;
+}
+
+async function abrirUnidadeFarmacia(unidadeId) {
+  ContextoFarmacia.unidadeId = unidadeId;
+  document.getElementById('farm-conteudo').hidden = !unidadeId;
+  if (!unidadeId) return;
+
+  const listas = await garantirListasOpcaoFarmacia();
+  document.getElementById('farm-turno').innerHTML =
+    (listas['Turno'] || []).map(v => `<option>${escapar(v)}</option>`).join('');
+  document.getElementById('farm-destino').innerHTML = '<option value="">—</option>' +
+    (listas['Destino'] || []).map(v => `<option>${escapar(v)}</option>`).join('');
+
+  document.getElementById('farm-data').value = new Date().toISOString().slice(0, 10);
+  await carregarHistoricoFarmacia();
+}
+
+async function carregarHistoricoFarmacia() {
+  const alvo = document.getElementById('farm-historico');
+  const { data, error } = await sb.from('movimentacao_estoque')
+    .select('*').eq('unidade_saude_id', ContextoFarmacia.unidadeId)
+    .order('data', { ascending: false }).order('criado_em', { ascending: false })
+    .limit(200);
+
+  if (error) { alvo.innerHTML = '<div class="vazio">Não foi possível carregar o histórico.</div>'; console.error('[Vettore] histórico farmácia:', error); return; }
+  if (!data || !data.length) { alvo.innerHTML = '<div class="vazio">Nenhuma movimentação registrada ainda.</div>'; return; }
+
+  const podeExcluir = pode('farmacia.excluir');
+  alvo.innerHTML = `
+    <div class="tabela-historico-wrap">
+    <table class="tabela-historico">
+      <thead><tr>
+        <th>Data</th><th>Turno</th><th>Tipo</th><th>Material</th><th>Lote</th>
+        <th>Validade</th><th>Destino</th><th>Paciente</th><th>NF</th><th>Qtde</th><th>Colaborador</th>
+        ${podeExcluir ? '<th></th>' : ''}
+      </tr></thead>
+      <tbody>
+        ${data.map(m => `
+          <tr>
+            <td>${formatarDataBR(m.data)}</td>
+            <td>${escapar(m.turno || '—')}</td>
+            <td class="${m.tipo === 'Entrada' ? 'tag-entrada' : 'tag-saida'}">${escapar(m.tipo)}</td>
+            <td>${escapar(m.material)}</td>
+            <td>${escapar(m.lote || '—')}</td>
+            <td>${m.validade ? formatarDataBR(m.validade) : '—'}</td>
+            <td>${escapar(m.destino || '—')}</td>
+            <td>${escapar(m.nome_paciente || '—')}</td>
+            <td>${escapar(m.nota_fiscal || '—')}</td>
+            <td>${m.qtde}</td>
+            <td>${escapar(m.colaborador || '—')}</td>
+            ${podeExcluir ? `<td><button type="button" class="excluir-arquivo" data-excluir-movimentacao="${m.id}" title="Excluir">✕</button></td>` : ''}
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
+
+function formatarDataBR(iso) {
+  const [ano, mes, dia] = iso.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+
+async function salvarMovimentacaoFarmacia() {
+  const aviso = document.getElementById('farm-aviso');
+  limparAviso(aviso);
+  const botao = document.getElementById('farm-salvar');
+
+  const dados = {
+    unidade_saude_id: ContextoFarmacia.unidadeId,
+    data: document.getElementById('farm-data').value,
+    turno: document.getElementById('farm-turno').value || null,
+    tipo: document.getElementById('farm-tipo').value,
+    colaborador: document.getElementById('farm-colaborador').value.trim() || null,
+    material: document.getElementById('farm-material').value.trim(),
+    lote: document.getElementById('farm-lote').value.trim() || null,
+    validade: document.getElementById('farm-validade').value || null,
+    destino: document.getElementById('farm-destino').value || null,
+    nome_paciente: document.getElementById('farm-paciente').value.trim() || null,
+    nota_fiscal: document.getElementById('farm-nf').value.trim() || null,
+    qtde: Number(document.getElementById('farm-qtde').value),
+    criado_por: Sessao.perfil.id
+  };
+
+  if (!dados.material) return mostrarAviso(aviso, 'Informe o material.');
+  if (!dados.qtde || dados.qtde <= 0) return mostrarAviso(aviso, 'Informe uma quantidade maior que zero.');
+  if (!dados.data) return mostrarAviso(aviso, 'Informe a data.');
+
+  botao.disabled = true;
+  botao.textContent = 'Salvando…';
+
+  const { data: registro, error } = await sb.from('movimentacao_estoque').insert(dados).select().single();
+
+  botao.disabled = false;
+  botao.textContent = 'Lançar movimentação';
+
+  if (error) {
+    mostrarAviso(aviso, 'Não foi possível salvar. Confira as permissões.');
+    console.error('[Vettore] salvar movimentação:', error);
+    return;
+  }
+
+  registrarAuditoria('movimentacao_estoque', registro.id, 'INSERIR');
+  mostrarAviso(aviso, 'Movimentação lançada.', 'ok');
+
+  ['farm-colaborador', 'farm-material', 'farm-lote', 'farm-validade', 'farm-paciente', 'farm-nf', 'farm-qtde']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('farm-destino').value = '';
+
+  await carregarHistoricoFarmacia();
+}
+
+async function excluirMovimentacaoFarmacia(id) {
+  if (!confirm('Excluir esta movimentação?')) return;
+  const { error } = await sb.from('movimentacao_estoque').delete().eq('id', id);
+  if (error) { alert('Não foi possível excluir. Confira as permissões.'); console.error('[Vettore] excluir movimentação:', error); return; }
+  registrarAuditoria('movimentacao_estoque', id, 'EXCLUIR');
+  await carregarHistoricoFarmacia();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('farm-municipio')?.addEventListener('change', e => {
+    ContextoFarmacia.municipioId = e.target.value || null;
+    carregarInstituicoesFarmacia(ContextoFarmacia.municipioId);
+  });
+  document.getElementById('farm-instituicao')?.addEventListener('change', e =>
+    abrirUnidadeFarmacia(e.target.value || null));
+  document.getElementById('farm-salvar')?.addEventListener('click', salvarMovimentacaoFarmacia);
+  document.getElementById('farm-historico')?.addEventListener('click', e => {
+    const botao = e.target.closest('[data-excluir-movimentacao]');
+    if (botao) excluirMovimentacaoFarmacia(botao.dataset.excluirMovimentacao);
+  });
+});

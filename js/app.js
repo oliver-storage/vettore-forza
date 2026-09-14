@@ -13,6 +13,8 @@ function irParaAba(nome) {
   if (nome === 'inicio' && typeof renderInicioMunicipios === 'function') renderInicioMunicipios();
   if (nome === 'prestacoes' && typeof ContextoPC !== 'undefined' && ContextoPC.prestacaoId
       && typeof carregarDocumentos === 'function') carregarDocumentos();
+  if (nome === 'farmacia' && typeof carregarMunicipiosFarmacia === 'function'
+      && document.getElementById('farm-municipio')?.options.length <= 1) carregarMunicipiosFarmacia();
 }
 
 async function iniciar() {
@@ -52,7 +54,8 @@ async function iniciar() {
 
   // Organização
   document.getElementById('form-org').addEventListener('submit', salvarOrganizacao);
-  document.getElementById('adicionar-bloco')?.addEventListener('click', adicionarBlocoNovo);
+  document.getElementById('adicionar-bloco')?.addEventListener('click', () =>
+    adicionarBlocoNovo(null, 'novo-bloco-nome', 'area-blocos-editor', 'aviso-blocos-editor'));
   document.getElementById('area-blocos-editor')?.addEventListener('click', e => {
     const btnSalvarBloco = e.target.closest('[data-salvar-bloco]');
     if (btnSalvarBloco) return salvarBlocoEditor(btnSalvarBloco.closest('[data-bloco-chave]'));
@@ -88,6 +91,16 @@ async function iniciar() {
   // Unidades
   document.getElementById('nova-unidade').addEventListener('click', () => abrirUnidade(null));
   document.getElementById('salvar-unidade').addEventListener('click', salvarUnidade);
+  document.getElementById('adicionar-bloco-unidade')?.addEventListener('click', () =>
+    adicionarBlocoNovo(editandoUnidade?.id, 'novo-bloco-nome-unidade', 'area-blocos-editor-unidade', 'aviso-blocos-editor-unidade'));
+  document.getElementById('area-blocos-editor-unidade')?.addEventListener('click', e => {
+    const btnSalvarBloco = e.target.closest('[data-salvar-bloco]');
+    if (btnSalvarBloco) return salvarBlocoEditor(btnSalvarBloco.closest('[data-bloco-chave]'));
+    const btnAdicionarDoc = e.target.closest('[data-adicionar-doc]');
+    if (btnAdicionarDoc) return adicionarDocEditor(btnAdicionarDoc.closest('[data-bloco-chave]'));
+    const btnSalvarDoc = e.target.closest('[data-salvar-doc]');
+    if (btnSalvarDoc) return salvarDocEditor(btnSalvarDoc.closest('[data-doc-chave]'));
+  });
   ligarCampoLogo('arquivo-logo-uni', 'previa-logo-uni', 'aviso-unidade', 'remover-logo-uni');
   ligarBuscaCnpj('uni-cnpj', 'buscar-cnpj-uni', 'aviso-unidade', {
     razao_social: 'uni-nome', email: 'uni-email', telefone: 'uni-telefone',

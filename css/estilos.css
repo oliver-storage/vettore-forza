@@ -163,6 +163,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 
 input[type=text], input[type=email], input[type=password],
+input[type=number], input[type=date], input[type=tel],
 select, textarea {
   width: 100%;
   padding: 9px 11px;
@@ -176,6 +177,14 @@ input:focus, select:focus, textarea:focus {
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--marca) 12%, transparent);
 }
+
+/* tira as setinhas do campo número, pra ficar igual aos outros campos */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] { -moz-appearance: textfield; }
 
 .botao {
   display: inline-flex;

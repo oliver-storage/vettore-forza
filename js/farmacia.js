@@ -50,7 +50,51 @@ async function abrirUnidadeFarmacia(unidadeId) {
     (listas['Destino'] || []).map(v => `<option>${escapar(v)}</option>`).join('');
 
   document.getElementById('farm-data').value = new Date().toISOString().slice(0, 10);
+  await carregarMateriaisFarmacia();
   await carregarHistoricoFarmacia();
+}
+
+async function carregarMateriaisFarmacia() {
+  const { data, error } = await sb.from('farmacia_material')
+    .select('*').eq('municipio_id', ContextoFarmacia.municipioId).eq('ativo', true).order('nome');
+  if (error) { console.error('[Vettore] farmacia_material:', error); return; }
+
+  document.getElementById('farm-lista-materiais').innerHTML =
+    (data || []).map(m => `<option value="${escapar(m.nome)}">`).join('');
+
+  const editor = document.getElementById('farm-lista-materiais-editor');
+  if (!editor) return;
+  editor.innerHTML = (data || []).map(m => `
+    <span class="chip-arquivo">
+      ${escapar(m.nome)}
+      <button type="button" class="excluir-arquivo" data-excluir-material="${m.id}" title="Remover">✕</button>
+    </span>`).join('') || '<div class="vazio">Nenhum material cadastrado ainda.</div>';
+}
+
+async function adicionarMaterialFarmacia() {
+  const input = document.getElementById('farm-novo-material');
+  const aviso = document.getElementById('farm-aviso-material');
+  limparAviso(aviso);
+  const nome = input.value.trim();
+  if (!nome) return;
+
+  const { error } = await sb.from('farmacia_material').insert({
+    municipio_id: ContextoFarmacia.municipioId, nome, criado_por: Sessao.perfil.id
+  });
+  if (error) {
+    mostrarAviso(aviso, /duplicate|unique/i.test(error.message) ? 'Esse material já está na lista.' : 'Não foi possível adicionar.');
+    console.error('[Vettore] adicionar material:', error);
+    return;
+  }
+  input.value = '';
+  await carregarMateriaisFarmacia();
+}
+
+async function excluirMaterialFarmacia(id) {
+  if (!confirm('Remover este material da lista?')) return;
+  const { error } = await sb.from('farmacia_material').delete().eq('id', id);
+  if (error) { alert('Não foi possível remover.'); console.error('[Vettore] excluir material:', error); return; }
+  await carregarMateriaisFarmacia();
 }
 
 async function carregarHistoricoFarmacia() {
@@ -163,6 +207,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('farm-instituicao')?.addEventListener('change', e =>
     abrirUnidadeFarmacia(e.target.value || null));
   document.getElementById('farm-salvar')?.addEventListener('click', salvarMovimentacaoFarmacia);
+  document.getElementById('farm-add-material')?.addEventListener('click', adicionarMaterialFarmacia);
+  document.getElementById('farm-lista-materiais-editor')?.addEventListener('click', e => {
+    const botao = e.target.closest('[data-excluir-material]');
+    if (botao) excluirMaterialFarmacia(botao.dataset.excluirMaterial);
+  });
   document.getElementById('farm-historico')?.addEventListener('click', e => {
     const botao = e.target.closest('[data-excluir-movimentacao]');
     if (botao) excluirMovimentacaoFarmacia(botao.dataset.excluirMovimentacao);

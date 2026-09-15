@@ -117,6 +117,7 @@ async function iniciar() {
 
   // Permissões
   document.getElementById('voltar-padroes').addEventListener('click', voltarParaPadroes);
+  document.getElementById('criar-papel')?.addEventListener('click', criarPapelNovo);
 
   await iniciarSessao();
 }

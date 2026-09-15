@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<link rel="icon" href="favicon.ico?v=0.29.0">
+<link rel="icon" href="favicon.ico?v=0.30.0">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vettore — Prestação de Contas</title>
@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="css/estilos.css?v=0.29.0">
+<link rel="stylesheet" href="css/estilos.css?v=0.30.0">
 </head>
 <body>
 
@@ -437,6 +437,17 @@
           <button class="botao neutro" id="voltar-padroes" hidden>Voltar ao padrão por papel</button>
         </header>
         <div class="conteudo">
+          <p class="rodape-nota" style="margin:0 0 10px">Criar um papel novo:</p>
+          <div class="linha-pc" style="grid-template-columns: 1fr 1fr 1fr .7fr 1fr auto; margin-bottom:16px">
+            <div class="campo"><label for="papel-codigo">Código</label><input type="text" id="papel-codigo" placeholder="ex: Farmaceutico"></div>
+            <div class="campo"><label for="papel-rotulo">Nome</label><input type="text" id="papel-rotulo"></div>
+            <div class="campo"><label for="papel-descricao">Descrição</label><input type="text" id="papel-descricao"></div>
+            <div class="campo"><label for="papel-nivel">Nível</label><input type="number" id="papel-nivel" value="50"></div>
+            <div class="campo"><label for="papel-copiar-de">Copiar permissões de</label><select id="papel-copiar-de"><option value="">Nenhum (tudo desligado)</option></select></div>
+            <button type="button" class="botao neutro" id="criar-papel" style="align-self:end">+ Novo papel</button>
+          </div>
+          <div id="aviso-papel" class="aviso" hidden></div>
+
           <p class="rodape-nota" id="legenda-matriz" style="margin:0 0 14px">
             O que cada papel pode fazer, valendo para todo mundo com aquele papel.
             As exceções de uma pessoa ficam na lista de Usuários.
@@ -744,15 +755,15 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-<script src="js/config.js?v=0.29.0"></script>
-<script src="js/api.js?v=0.29.0"></script>
-<script src="js/autenticacao.js?v=0.29.0"></script>
-<script src="js/municipios-ce.js?v=0.29.0"></script>
-<script src="js/cadastros-util.js?v=0.29.0"></script>
-<script src="js/configuracoes.js?v=0.29.0"></script>
-<script src="js/prestacoes.js?v=0.29.0"></script>
-<script src="js/capas.js?v=0.29.0"></script>
-<script src="js/farmacia.js?v=0.29.0"></script>
-<script src="js/app.js?v=0.29.0"></script>
+<script src="js/config.js?v=0.30.0"></script>
+<script src="js/api.js?v=0.30.0"></script>
+<script src="js/autenticacao.js?v=0.30.0"></script>
+<script src="js/municipios-ce.js?v=0.30.0"></script>
+<script src="js/cadastros-util.js?v=0.30.0"></script>
+<script src="js/configuracoes.js?v=0.30.0"></script>
+<script src="js/prestacoes.js?v=0.30.0"></script>
+<script src="js/capas.js?v=0.30.0"></script>
+<script src="js/farmacia.js?v=0.30.0"></script>
+<script src="js/app.js?v=0.30.0"></script>
 </body>
 </html>

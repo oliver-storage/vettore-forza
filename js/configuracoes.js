@@ -1169,6 +1169,12 @@ async function carregarMatrizPermissoes() {
   const alvo = document.getElementById('area-matriz');
   alvo.innerHTML = '<div class="vazio">Carregando…</div>';
 
+  const selectCopiar = document.getElementById('papel-copiar-de');
+  if (selectCopiar) {
+    selectCopiar.innerHTML = '<option value="">Nenhum (tudo desligado)</option>' +
+      Sessao.papeis.map(p => `<option value="${p.codigo}">${escapar(p.rotulo)}</option>`).join('');
+  }
+
   const [cat, padroes] = await Promise.all([
     sb.from('permissao_catalogo').select('*').order('ordem'),
     sb.from('permissao_papel').select('*')
@@ -1178,6 +1184,42 @@ async function carregarMatrizPermissoes() {
   (padroes.data || []).forEach(p => { (padroesPapel[p.papel] ||= {})[p.chave] = p.permitido; });
 
   desenharMatriz(alvo, cat.data || [], null);
+}
+
+async function criarPapelNovo() {
+  const aviso = document.getElementById('aviso-papel');
+  limparAviso(aviso);
+
+  const codigo = document.getElementById('papel-codigo').value.trim();
+  const rotulo = document.getElementById('papel-rotulo').value.trim();
+  const descricao = document.getElementById('papel-descricao').value.trim() || null;
+  const nivel = Number(document.getElementById('papel-nivel').value) || 100;
+  const copiarDe = document.getElementById('papel-copiar-de').value || null;
+
+  if (!codigo || !rotulo) return mostrarAviso(aviso, 'Preencha código e nome.');
+  if (/\s/.test(codigo)) return mostrarAviso(aviso, 'O código não pode ter espaço (ex: Farmaceutico).');
+
+  const botao = document.getElementById('criar-papel');
+  botao.disabled = true;
+  botao.textContent = 'Criando…';
+
+  const { error } = await sb.rpc('registrar_papel', {
+    p_codigo: codigo, p_rotulo: rotulo, p_descricao: descricao, p_nivel: nivel, p_copiar_de: copiarDe
+  });
+
+  botao.disabled = false;
+  botao.textContent = '+ Novo papel';
+
+  if (error) return mostrarAviso(aviso, 'Não foi possível criar: ' + error.message);
+
+  ['papel-codigo', 'papel-rotulo', 'papel-descricao'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('papel-nivel').value = 50;
+  mostrarAviso(aviso, 'Papel criado.', 'ok');
+  registrarAuditoria('papel', codigo, 'INSERIR');
+
+  const { data: papeis } = await sb.from('papel').select('*').eq('ativo', true).order('nivel');
+  Sessao.papeis = papeis || [];
+  await carregarMatrizPermissoes();
 }
 
 function desenharMatriz(alvo, catalogo, modoUsuario, sobrescritas = {}) {

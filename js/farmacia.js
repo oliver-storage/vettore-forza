@@ -1,17 +1,33 @@
 /* =============================================================
-   Vettore — farmacia.js — v0.28.0
-   Movimentação de estoque (entrada/saída) por unidade de saúde.
+   Vettore — farmacia.js — v0.32.0
+   Movimentação de estoque (entrada/saída) por unidade de saúde,
+   e catálogo de materiais (MMH) por município, em sub-abas.
    ============================================================= */
 
 const ContextoFarmacia = { municipioId: null, unidadeId: null };
+const ContextoMMH = { municipioId: null };
 let LISTAS_OPCAO_FARMACIA = null;
+let subAbaFarmaciaAtual = 'movimentacao';
+
+function irParaSubAbaFarmacia(nome) {
+  subAbaFarmaciaAtual = nome;
+  document.querySelectorAll('.sub-aba-farmacia').forEach(b =>
+    b.setAttribute('aria-selected', b.dataset.subf === nome));
+  document.querySelectorAll('.painel-farmacia').forEach(p =>
+    p.hidden = p.dataset.subf !== nome);
+
+  if (nome === 'mmh' && document.getElementById('farm-mmh-municipio').options.length <= 1) {
+    carregarMunicipiosMMH();
+  }
+}
 
 async function carregarMunicipiosFarmacia() {
   const sel = document.getElementById('farm-municipio');
   const { data, error } = await sb.from('municipio').select('id, nome, uf').eq('ativo', true).order('nome');
   if (error) { console.error('[Vettore] municípios (farmácia):', error); return; }
-  sel.innerHTML = '<option value="">Selecione…</option>' +
+  const opcoes = '<option value="">Selecione…</option>' +
     (data || []).map(m => `<option value="${m.id}">${escapar(m.nome)}/${escapar(m.uf)}</option>`).join('');
+  sel.innerHTML = opcoes;
 }
 
 async function carregarInstituicoesFarmacia(municipioId) {
@@ -50,20 +66,42 @@ async function abrirUnidadeFarmacia(unidadeId) {
     (listas['Destino'] || []).map(v => `<option>${escapar(v)}</option>`).join('');
 
   document.getElementById('farm-data').value = new Date().toISOString().slice(0, 10);
-  await carregarMateriaisFarmacia();
+  await carregarDatalistMateriais(ContextoFarmacia.municipioId);
   await carregarHistoricoFarmacia();
 }
 
-async function carregarMateriaisFarmacia() {
+// Datalist do formulário de movimentação — só sugere, sem editor.
+async function carregarDatalistMateriais(municipioId) {
   const { data, error } = await sb.from('farmacia_material')
-    .select('*').eq('municipio_id', ContextoFarmacia.municipioId).eq('ativo', true).order('nome');
+    .select('nome').eq('municipio_id', municipioId).eq('ativo', true).order('nome');
   if (error) { console.error('[Vettore] farmacia_material:', error); return; }
-
   document.getElementById('farm-lista-materiais').innerHTML =
     (data || []).map(m => `<option value="${escapar(m.nome)}">`).join('');
+}
 
+/* -------- Sub-aba MMH: gerenciar a lista de materiais -------- */
+
+async function carregarMunicipiosMMH() {
+  const sel = document.getElementById('farm-mmh-municipio');
+  const { data, error } = await sb.from('municipio').select('id, nome, uf').eq('ativo', true).order('nome');
+  if (error) { console.error('[Vettore] municípios (MMH):', error); return; }
+  sel.innerHTML = '<option value="">Selecione…</option>' +
+    (data || []).map(m => `<option value="${m.id}">${escapar(m.nome)}/${escapar(m.uf)}</option>`).join('');
+}
+
+async function abrirMunicipioMMH(municipioId) {
+  ContextoMMH.municipioId = municipioId;
+  document.getElementById('farm-painel-materiais').hidden = !municipioId;
+  if (!municipioId) return;
+  await carregarEditorMateriais();
+}
+
+async function carregarEditorMateriais() {
   const editor = document.getElementById('farm-lista-materiais-editor');
-  if (!editor) return;
+  const { data, error } = await sb.from('farmacia_material')
+    .select('*').eq('municipio_id', ContextoMMH.municipioId).eq('ativo', true).order('nome');
+  if (error) { console.error('[Vettore] farmacia_material (editor):', error); return; }
+
   editor.innerHTML = (data || []).map(m => `
     <span class="chip-arquivo">
       ${escapar(m.nome)}
@@ -79,7 +117,7 @@ async function adicionarMaterialFarmacia() {
   if (!nome) return;
 
   const { error } = await sb.from('farmacia_material').insert({
-    municipio_id: ContextoFarmacia.municipioId, nome, criado_por: Sessao.perfil.id
+    municipio_id: ContextoMMH.municipioId, nome, criado_por: Sessao.perfil.id
   });
   if (error) {
     mostrarAviso(aviso, /duplicate|unique/i.test(error.message) ? 'Esse material já está na lista.' : 'Não foi possível adicionar.');
@@ -87,14 +125,14 @@ async function adicionarMaterialFarmacia() {
     return;
   }
   input.value = '';
-  await carregarMateriaisFarmacia();
+  await carregarEditorMateriais();
 }
 
 async function excluirMaterialFarmacia(id) {
   if (!confirm('Remover este material da lista?')) return;
   const { error } = await sb.from('farmacia_material').delete().eq('id', id);
   if (error) { alert('Não foi possível remover.'); console.error('[Vettore] excluir material:', error); return; }
-  await carregarMateriaisFarmacia();
+  await carregarEditorMateriais();
 }
 
 async function carregarHistoricoFarmacia() {
@@ -200,6 +238,9 @@ async function excluirMovimentacaoFarmacia(id) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.sub-aba-farmacia').forEach(b =>
+    b.addEventListener('click', () => irParaSubAbaFarmacia(b.dataset.subf)));
+
   document.getElementById('farm-municipio')?.addEventListener('change', e => {
     ContextoFarmacia.municipioId = e.target.value || null;
     carregarInstituicoesFarmacia(ContextoFarmacia.municipioId);
@@ -207,13 +248,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('farm-instituicao')?.addEventListener('change', e =>
     abrirUnidadeFarmacia(e.target.value || null));
   document.getElementById('farm-salvar')?.addEventListener('click', salvarMovimentacaoFarmacia);
+  document.getElementById('farm-historico')?.addEventListener('click', e => {
+    const botao = e.target.closest('[data-excluir-movimentacao]');
+    if (botao) excluirMovimentacaoFarmacia(botao.dataset.excluirMovimentacao);
+  });
+
+  document.getElementById('farm-mmh-municipio')?.addEventListener('change', e =>
+    abrirMunicipioMMH(e.target.value || null));
   document.getElementById('farm-add-material')?.addEventListener('click', adicionarMaterialFarmacia);
   document.getElementById('farm-lista-materiais-editor')?.addEventListener('click', e => {
     const botao = e.target.closest('[data-excluir-material]');
     if (botao) excluirMaterialFarmacia(botao.dataset.excluirMaterial);
-  });
-  document.getElementById('farm-historico')?.addEventListener('click', e => {
-    const botao = e.target.closest('[data-excluir-movimentacao]');
-    if (botao) excluirMovimentacaoFarmacia(botao.dataset.excluirMovimentacao);
   });
 });

@@ -15,6 +15,7 @@ function irParaAba(nome) {
       && typeof carregarDocumentos === 'function') carregarDocumentos();
   if (nome === 'farmacia' && typeof carregarMunicipiosFarmacia === 'function'
       && document.getElementById('farm-municipio')?.options.length <= 1) carregarMunicipiosFarmacia();
+  if (nome === 'farmacia' && typeof irParaSubAbaFarmacia === 'function') irParaSubAbaFarmacia(subAbaFarmaciaAtual);
 }
 
 async function iniciar() {

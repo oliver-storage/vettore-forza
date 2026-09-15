@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<link rel="icon" href="favicon.ico?v=0.28.0">
+<link rel="icon" href="favicon.ico?v=0.29.0">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vettore — Prestação de Contas</title>
@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="css/estilos.css?v=0.28.0">
+<link rel="stylesheet" href="css/estilos.css?v=0.29.0">
 </head>
 <body>
 
@@ -716,6 +716,17 @@
         <p class="rodape-nota">Mínimo de 6 caracteres. Passe para a pessoa e peça que troque no primeiro acesso.</p>
       </div>
 
+      <div class="campo" id="bloco-trocar-senha" hidden>
+        <label for="usu-nova-senha">Trocar senha</label>
+        <div class="linha-cnpj">
+          <input type="text" id="usu-nova-senha" class="mono" autocomplete="off" placeholder="Nova senha (mín. 6 caracteres)">
+          <button type="button" class="botao neutro pequeno" id="trocar-senha-usuario"
+                  data-permissao="config.usuarios.editar">Trocar senha</button>
+        </div>
+        <p class="rodape-nota">Troca na hora. Passe a senha nova pra pessoa por um canal seguro.</p>
+        <div id="aviso-trocar-senha" class="aviso" hidden></div>
+      </div>
+
       <label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-top:6px">
         <input type="checkbox" id="usu-ativo"> Acesso ativo
       </label>
@@ -733,15 +744,15 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-<script src="js/config.js?v=0.28.0"></script>
-<script src="js/api.js?v=0.28.0"></script>
-<script src="js/autenticacao.js?v=0.28.0"></script>
-<script src="js/municipios-ce.js?v=0.28.0"></script>
-<script src="js/cadastros-util.js?v=0.28.0"></script>
-<script src="js/configuracoes.js?v=0.28.0"></script>
-<script src="js/prestacoes.js?v=0.28.0"></script>
-<script src="js/capas.js?v=0.28.0"></script>
-<script src="js/farmacia.js?v=0.28.0"></script>
-<script src="js/app.js?v=0.28.0"></script>
+<script src="js/config.js?v=0.29.0"></script>
+<script src="js/api.js?v=0.29.0"></script>
+<script src="js/autenticacao.js?v=0.29.0"></script>
+<script src="js/municipios-ce.js?v=0.29.0"></script>
+<script src="js/cadastros-util.js?v=0.29.0"></script>
+<script src="js/configuracoes.js?v=0.29.0"></script>
+<script src="js/prestacoes.js?v=0.29.0"></script>
+<script src="js/capas.js?v=0.29.0"></script>
+<script src="js/farmacia.js?v=0.29.0"></script>
+<script src="js/app.js?v=0.29.0"></script>
 </body>
 </html>

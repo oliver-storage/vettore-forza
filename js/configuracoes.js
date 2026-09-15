@@ -964,6 +964,9 @@ function abrirUsuario(id) {
 
   document.getElementById('bloco-senha').hidden = !novo;
   document.getElementById('usu-senha').value = '';
+  document.getElementById('bloco-trocar-senha').hidden = novo;
+  document.getElementById('usu-nova-senha').value = '';
+  limparAviso(document.getElementById('aviso-trocar-senha'));
   document.getElementById('nota-email').textContent = novo
     ? 'Será o login da pessoa. Não pode ser alterado depois.'
     : 'O email é a chave do login e só muda pelo painel de autenticação.';
@@ -977,6 +980,39 @@ function abrirUsuario(id) {
 
   limparAviso(document.getElementById('aviso-usuario'));
   document.getElementById('modal-usuario').hidden = false;
+}
+
+async function trocarSenhaUsuario() {
+  if (!editandoUsuario) return;
+  const aviso = document.getElementById('aviso-trocar-senha');
+  limparAviso(aviso);
+  const novaSenha = document.getElementById('usu-nova-senha').value;
+  if (novaSenha.length < 6) return mostrarAviso(aviso, 'Mínimo de 6 caracteres.');
+
+  const botao = document.getElementById('trocar-senha-usuario');
+  botao.disabled = true;
+  botao.textContent = 'Trocando…';
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const r = await fetch(`${CONFIG.SUPABASE_URL}/functions/v1/definir-senha`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+      body: JSON.stringify({ perfil_id: editandoUsuario.id, nova_senha: novaSenha })
+    });
+    const resultado = await r.json();
+    if (!r.ok || resultado.erro) throw new Error(resultado.erro || 'Falha ao trocar a senha.');
+
+    registrarAuditoria('perfil', editandoUsuario.id, 'ALTERAR', { acao: 'trocar_senha' });
+    document.getElementById('usu-nova-senha').value = '';
+    mostrarAviso(aviso, 'Senha trocada.', 'ok');
+  } catch (e) {
+    mostrarAviso(aviso, e.message);
+    console.error('[Vettore] trocar senha:', e);
+  } finally {
+    botao.disabled = false;
+    botao.textContent = 'Trocar senha';
+  }
 }
 
 function montarSeletorAlcance(u) {

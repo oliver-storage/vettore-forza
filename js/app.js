@@ -113,6 +113,7 @@ async function iniciar() {
   // Usuários
   document.getElementById('novo-usuario').addEventListener('click', () => abrirUsuario(null));
   document.getElementById('salvar-usuario').addEventListener('click', salvarUsuario);
+  document.getElementById('trocar-senha-usuario')?.addEventListener('click', trocarSenhaUsuario);
 
   // Permissões
   document.getElementById('voltar-padroes').addEventListener('click', voltarParaPadroes);

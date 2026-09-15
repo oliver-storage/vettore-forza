@@ -68,7 +68,20 @@ async function abrirUnidadeFarmacia(unidadeId) {
   document.getElementById('farm-data').value = new Date().toISOString().slice(0, 10);
   document.getElementById('farm-colaborador').value = Sessao.perfil?.nome || '';
   await carregarDatalistMateriais(ContextoFarmacia.municipioId);
+  await carregarDatalistPacientes();
   await carregarHistoricoFarmacia();
+}
+
+// Sugestões de paciente = nomes já usados nessa unidade, pra evitar
+// erro de digitação (o mesmo paciente escrito de dois jeitos diferentes).
+async function carregarDatalistPacientes() {
+  const { data, error } = await sb.from('movimentacao_estoque')
+    .select('nome_paciente').eq('unidade_saude_id', ContextoFarmacia.unidadeId)
+    .not('nome_paciente', 'is', null).order('nome_paciente');
+  if (error) { console.error('[Vettore] pacientes (farmácia):', error); return; }
+  const unicos = [...new Set((data || []).map(d => d.nome_paciente))];
+  document.getElementById('farm-lista-pacientes').innerHTML =
+    unicos.map(n => `<option value="${escapar(n)}">`).join('');
 }
 
 // Datalist do formulário de movimentação — só sugere, sem editor.
@@ -227,6 +240,7 @@ async function salvarMovimentacaoFarmacia() {
     .forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('farm-destino').value = '';
 
+  await carregarDatalistPacientes();
   await carregarHistoricoFarmacia();
 }
 

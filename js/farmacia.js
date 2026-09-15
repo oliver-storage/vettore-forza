@@ -66,6 +66,7 @@ async function abrirUnidadeFarmacia(unidadeId) {
     (listas['Destino'] || []).map(v => `<option>${escapar(v)}</option>`).join('');
 
   document.getElementById('farm-data').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('farm-colaborador').value = Sessao.perfil?.nome || '';
   await carregarDatalistMateriais(ContextoFarmacia.municipioId);
   await carregarHistoricoFarmacia();
 }
@@ -222,7 +223,7 @@ async function salvarMovimentacaoFarmacia() {
   registrarAuditoria('movimentacao_estoque', registro.id, 'INSERIR');
   mostrarAviso(aviso, 'Movimentação lançada.', 'ok');
 
-  ['farm-colaborador', 'farm-material', 'farm-lote', 'farm-validade', 'farm-paciente', 'farm-nf', 'farm-qtde']
+  ['farm-material', 'farm-lote', 'farm-validade', 'farm-paciente', 'farm-nf', 'farm-qtde']
     .forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('farm-destino').value = '';
 

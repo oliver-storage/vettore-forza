@@ -35,7 +35,7 @@ async function iniciar() {
   // Navegação
   document.querySelectorAll('.aba').forEach(b =>
     b.addEventListener('click', () => irParaAba(b.dataset.aba)));
-  document.querySelectorAll('.sub-aba').forEach(b =>
+  document.querySelectorAll('[data-sub]').forEach(b =>
     b.addEventListener('click', () => irParaSubAba(b.dataset.sub)));
   document.getElementById('botao-sair').addEventListener('click', sair);
 

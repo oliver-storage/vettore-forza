@@ -18,7 +18,7 @@ let editandoMunicipio = null, editandoUnidade = null, editandoUsuario = null;
 
 function irParaSubAba(nome) {
   subAbaAtual = nome;
-  document.querySelectorAll('.sub-aba').forEach(b =>
+  document.querySelectorAll('[data-sub]').forEach(b =>
     b.setAttribute('aria-selected', b.dataset.sub === nome));
   document.querySelectorAll('.painel-config').forEach(p =>
     p.hidden = p.dataset.sub !== nome);

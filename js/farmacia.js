@@ -11,7 +11,7 @@ let subAbaFarmaciaAtual = 'movimentacao';
 
 function irParaSubAbaFarmacia(nome) {
   subAbaFarmaciaAtual = nome;
-  document.querySelectorAll('.sub-aba-farmacia').forEach(b =>
+  document.querySelectorAll('[data-subf]').forEach(b =>
     b.setAttribute('aria-selected', b.dataset.subf === nome));
   document.querySelectorAll('.painel-farmacia').forEach(p =>
     p.hidden = p.dataset.subf !== nome);
@@ -238,7 +238,7 @@ async function excluirMovimentacaoFarmacia(id) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.sub-aba-farmacia').forEach(b =>
+  document.querySelectorAll('[data-subf]').forEach(b =>
     b.addEventListener('click', () => irParaSubAbaFarmacia(b.dataset.subf)));
 
   document.getElementById('farm-municipio')?.addEventListener('change', e => {

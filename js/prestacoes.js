@@ -34,6 +34,12 @@ let CATALOGO_BLOCOS = null, CATALOGO_BLOCOS_UNIDADE = null;         // cache por
 async function renderInicioMunicipios() {
   const grade = document.getElementById('grade-municipios');
   if (!grade) return;
+
+  if (!pode('prestacao.ver')) {
+    grade.innerHTML = '<div class="vazio">Use o menu acima para acessar os módulos liberados pro seu papel.</div>';
+    return;
+  }
+
   grade.innerHTML = '<div class="vazio">Carregando…</div>';
 
   const [{ data: municipios, error: erroMun }, { data: unidades }] = await Promise.all([
@@ -73,6 +79,8 @@ async function renderInicioMunicipios() {
 }
 
 function abrirMunicipioNaPrestacao(municipioId, municipioNome) {
+  if (!pode('prestacao.ver')) return; // cartão do Início não checa permissão sozinho
+
   ContextoPC.municipioId = municipioId;
   ContextoPC.municipioNome = municipioNome;
   ContextoPC.unidadeId = null;

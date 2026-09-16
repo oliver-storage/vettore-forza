@@ -28,7 +28,8 @@ function irParaSubAba(nome) {
     municipios:  carregarMunicipios,
     unidades:    carregarUnidades,
     usuarios:    carregarUsuarios,
-    permissoes:  carregarMatrizPermissoes
+    permissoes:  carregarMatrizPermissoes,
+    importacoes: carregarMunicipiosImportacaoSePreciso
   }[nome] || (() => {}))();
 }
 

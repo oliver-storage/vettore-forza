@@ -168,7 +168,8 @@
       </div>
 
       <div class="sub-abas" role="tablist">
-        <button class="sub-aba" data-subf="movimentacao" role="tab" aria-selected="true">Movimentação de Estoque</button>
+        <button class="sub-aba" data-subf="movimentacao" role="tab" aria-selected="true">Nova Movimentação</button>
+        <button class="sub-aba" data-subf="relatorio" role="tab" aria-selected="false">Relatório</button>
         <button class="sub-aba" data-subf="mmh" role="tab" aria-selected="false"
                 data-permissao="farmacia.material.editar">MMH</button>
       </div>
@@ -233,6 +234,53 @@
         </div>
       </div>
 
+      <!-- ---------- Relatório ---------- -->
+      <div class="painel-farmacia" data-subf="relatorio" hidden>
+        <div class="painel">
+          <div class="conteudo">
+            <div class="linha-pc" style="grid-template-columns: 1fr 1fr;">
+              <div class="campo">
+                <label for="rel-municipio">Município</label>
+                <select id="rel-municipio"><option value="">Selecione…</option></select>
+              </div>
+              <div class="campo">
+                <label for="rel-instituicao">Instituição</label>
+                <select id="rel-instituicao"><option value="">Selecione o município primeiro</option></select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="rel-conteudo" hidden>
+          <div class="painel">
+            <header><h3>Saldo por material</h3></header>
+            <div class="conteudo">
+              <div class="campo" style="max-width:320px">
+                <input type="text" id="rel-busca-material" placeholder="Buscar material…">
+              </div>
+              <div class="tabela-historico-wrap">
+                <table class="tabela-historico">
+                  <thead><tr><th>Material</th><th>Entradas</th><th>Saídas</th><th>Saldo atual</th></tr></thead>
+                  <tbody id="rel-corpo-material"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="painel">
+            <header><h3>Saldo mensal</h3></header>
+            <div class="conteudo">
+              <div class="tabela-historico-wrap">
+                <table class="tabela-historico">
+                  <thead><tr><th>Mês</th><th>Entradas</th><th>Saídas</th><th>Saldo do mês</th></tr></thead>
+                  <tbody id="rel-corpo-mensal"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ---------- MMH ---------- -->
       <div class="painel-farmacia" data-subf="mmh" hidden>
         <div class="painel">
@@ -274,6 +322,7 @@
         <button class="sub-aba" data-sub="unidades"    role="tab" aria-selected="false" data-permissao="config.unidades.ver">Unidades</button>
         <button class="sub-aba" data-sub="usuarios"    role="tab" aria-selected="false" data-permissao="config.usuarios.ver">Usuários</button>
         <button class="sub-aba" data-sub="permissoes"  role="tab" aria-selected="false" data-permissao="config.permissoes.editar">Permissões</button>
+        <button class="sub-aba" data-sub="importacoes" role="tab" aria-selected="false" data-permissao="farmacia.material.editar">Importações</button>
       </div>
 
       <!-- ---------- Organização ---------- -->
@@ -493,6 +542,51 @@
             As exceções de uma pessoa ficam na lista de Usuários.
           </p>
           <div id="area-matriz"></div>
+        </div>
+      </div>
+
+      <!-- ---------- Importações ---------- -->
+      <div class="painel painel-config" data-sub="importacoes" hidden>
+        <header><h3>Importar planilha de movimentação (Farmácia)</h3></header>
+        <div class="conteudo">
+          <p class="rodape-nota" style="margin:0 0 14px">
+            Aceita .xlsx, .xls ou .csv. A planilha precisa ter uma linha com o cabeçalho
+            "Data" na primeira coluna, seguida de: Turno, Colaborador, E/S, Material, Lote,
+            Validade, Destino, Nome do Paciente, Nota Fiscal, Qtde — nessa ordem.
+          </p>
+
+          <div class="linha-pc" style="grid-template-columns: 1fr 1fr;">
+            <div class="campo">
+              <label for="imp-municipio">Município</label>
+              <select id="imp-municipio"><option value="">Selecione…</option></select>
+            </div>
+            <div class="campo">
+              <label for="imp-instituicao">Instituição</label>
+              <select id="imp-instituicao"><option value="">Selecione o município primeiro</option></select>
+            </div>
+          </div>
+
+          <div class="linha-pc" style="grid-template-columns: 1fr 1fr;">
+            <div class="campo">
+              <label for="imp-arquivo">Arquivo</label>
+              <input type="file" id="imp-arquivo" accept=".xlsx,.xls,.csv">
+            </div>
+            <div class="campo">
+              <label for="imp-aba">Aba da planilha</label>
+              <select id="imp-aba"><option value="">Escolha um arquivo primeiro</option></select>
+            </div>
+          </div>
+
+          <button class="botao" type="button" id="imp-processar" disabled style="margin-top:6px">Processar e importar</button>
+
+          <div id="imp-aviso" class="aviso" hidden style="margin-top:12px"></div>
+
+          <div id="imp-progresso" hidden style="margin-top:14px">
+            <p id="imp-progresso-texto" class="rodape-nota" style="margin:0 0 6px"></p>
+            <progress id="imp-barra" value="0" max="100" style="width:100%"></progress>
+          </div>
+
+          <div id="imp-resumo" style="margin-top:14px"></div>
         </div>
       </div>
 
@@ -793,17 +887,54 @@
   </div>
 </div>
 
+<div class="fundo-modal" id="modal-movimentacao" hidden>
+  <div class="modal largo">
+    <header><h3 class="titulo">Editar movimentação</h3></header>
+    <div class="corpo">
+      <div id="aviso-editar-movimentacao" class="aviso" hidden></div>
+
+      <div class="linha-pc" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="campo"><label for="em-data">Data</label><input type="date" id="em-data"></div>
+        <div class="campo"><label for="em-turno">Turno</label><select id="em-turno"></select></div>
+        <div class="campo"><label for="em-tipo">Tipo</label>
+          <select id="em-tipo"><option value="Entrada">Entrada</option><option value="Saída">Saída</option></select>
+        </div>
+      </div>
+      <div class="linha-pc" style="grid-template-columns: 1fr 1fr;">
+        <div class="campo"><label for="em-colaborador">Colaborador</label><input type="text" id="em-colaborador"></div>
+        <div class="campo"><label for="em-material">Material</label><input type="text" id="em-material" list="farm-lista-materiais"></div>
+      </div>
+      <div class="linha-pc" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="campo"><label for="em-lote">Lote</label><input type="text" id="em-lote"></div>
+        <div class="campo"><label for="em-validade">Validade</label><input type="date" id="em-validade"></div>
+        <div class="campo"><label for="em-destino">Destino</label><select id="em-destino"></select></div>
+      </div>
+      <div class="linha-pc" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="campo"><label for="em-paciente">Paciente</label><input type="text" id="em-paciente"></div>
+        <div class="campo"><label for="em-nf">Nota Fiscal</label><input type="text" id="em-nf"></div>
+        <div class="campo"><label for="em-qtde">Quantidade</label><input type="number" id="em-qtde" min="0" step="0.01"></div>
+      </div>
+    </div>
+    <footer>
+      <button class="botao neutro" data-fechar="modal-movimentacao">Cancelar</button>
+      <button class="botao" id="salvar-editar-movimentacao">Salvar</button>
+    </footer>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-<script src="js/config.js?v=0.33.2"></script>
-<script src="js/api.js?v=0.33.2"></script>
-<script src="js/autenticacao.js?v=0.33.2"></script>
-<script src="js/municipios-ce.js?v=0.33.2"></script>
-<script src="js/cadastros-util.js?v=0.33.2"></script>
-<script src="js/configuracoes.js?v=0.33.2"></script>
-<script src="js/prestacoes.js?v=0.33.2"></script>
-<script src="js/capas.js?v=0.33.2"></script>
-<script src="js/farmacia.js?v=0.33.2"></script>
-<script src="js/app.js?v=0.33.2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="js/config.js?v=0.36.1"></script>
+<script src="js/api.js?v=0.36.1"></script>
+<script src="js/autenticacao.js?v=0.36.1"></script>
+<script src="js/municipios-ce.js?v=0.36.1"></script>
+<script src="js/cadastros-util.js?v=0.36.1"></script>
+<script src="js/configuracoes.js?v=0.36.1"></script>
+<script src="js/prestacoes.js?v=0.36.1"></script>
+<script src="js/capas.js?v=0.36.1"></script>
+<script src="js/farmacia.js?v=0.36.1"></script>
+<script src="js/importacao-farmacia.js?v=0.36.1"></script>
+<script src="js/app.js?v=0.36.1"></script>
 </body>
 </html>

@@ -7,6 +7,8 @@
 const ContextoFarmacia = { municipioId: null, unidadeId: null };
 const ContextoMMH = { municipioId: null };
 let LISTAS_OPCAO_FARMACIA = null;
+let HISTORICO_FARMACIA_CACHE = {};
+let EditandoMovimentacaoId = null;
 let subAbaFarmaciaAtual = 'movimentacao';
 
 function irParaSubAbaFarmacia(nome) {
@@ -18,6 +20,9 @@ function irParaSubAbaFarmacia(nome) {
 
   if (nome === 'mmh' && document.getElementById('farm-mmh-municipio').options.length <= 1) {
     carregarMunicipiosMMH();
+  }
+  if (nome === 'relatorio' && document.getElementById('rel-municipio').options.length <= 1) {
+    carregarMunicipiosRelatorio();
   }
 }
 
@@ -159,14 +164,20 @@ async function carregarHistoricoFarmacia() {
   if (error) { alvo.innerHTML = '<div class="vazio">Não foi possível carregar o histórico.</div>'; console.error('[Vettore] histórico farmácia:', error); return; }
   if (!data || !data.length) { alvo.innerHTML = '<div class="vazio">Nenhuma movimentação registrada ainda.</div>'; return; }
 
+  HISTORICO_FARMACIA_CACHE = {};
+  data.forEach(m => { HISTORICO_FARMACIA_CACHE[m.id] = m; });
+
   const podeExcluir = pode('farmacia.excluir');
+  const podeEditar = pode('farmacia.movimentacao.editar');
+  const mostrarAcoes = podeExcluir || podeEditar;
+
   alvo.innerHTML = `
     <div class="tabela-historico-wrap">
     <table class="tabela-historico">
       <thead><tr>
         <th>Data</th><th>Turno</th><th>Tipo</th><th>Material</th><th>Lote</th>
         <th>Validade</th><th>Destino</th><th>Paciente</th><th>NF</th><th>Qtde</th><th>Colaborador</th>
-        ${podeExcluir ? '<th></th>' : ''}
+        ${mostrarAcoes ? '<th></th>' : ''}
       </tr></thead>
       <tbody>
         ${data.map(m => `
@@ -182,7 +193,10 @@ async function carregarHistoricoFarmacia() {
             <td>${escapar(m.nota_fiscal || '—')}</td>
             <td>${m.qtde}</td>
             <td>${escapar(m.colaborador || '—')}</td>
-            ${podeExcluir ? `<td><button type="button" class="excluir-arquivo" data-excluir-movimentacao="${m.id}" title="Excluir">✕</button></td>` : ''}
+            ${mostrarAcoes ? `<td>
+              ${podeEditar ? `<button type="button" class="excluir-arquivo" data-editar-movimentacao="${m.id}" title="Editar">✎</button>` : ''}
+              ${podeExcluir ? `<button type="button" class="excluir-arquivo" data-excluir-movimentacao="${m.id}" title="Excluir">✕</button>` : ''}
+            </td>` : ''}
           </tr>`).join('')}
       </tbody>
     </table>
@@ -239,8 +253,80 @@ async function salvarMovimentacaoFarmacia() {
   ['farm-material', 'farm-lote', 'farm-validade', 'farm-paciente', 'farm-nf', 'farm-qtde']
     .forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('farm-destino').value = '';
-
   await carregarDatalistPacientes();
+
+  await carregarHistoricoFarmacia();
+}
+
+/* -------- Editar movimentação: janela flutuante -------- */
+
+async function editarMovimentacaoFarmacia(id) {
+  const m = HISTORICO_FARMACIA_CACHE[id];
+  if (!m) return;
+
+  EditandoMovimentacaoId = id;
+  limparAviso(document.getElementById('aviso-editar-movimentacao'));
+
+  const listas = await garantirListasOpcaoFarmacia();
+  document.getElementById('em-turno').innerHTML =
+    (listas['Turno'] || []).map(v => `<option ${v === m.turno ? 'selected' : ''}>${escapar(v)}</option>`).join('');
+  document.getElementById('em-destino').innerHTML = '<option value="">—</option>' +
+    (listas['Destino'] || []).map(v => `<option ${v === m.destino ? 'selected' : ''}>${escapar(v)}</option>`).join('');
+
+  document.getElementById('em-data').value = m.data;
+  document.getElementById('em-tipo').value = m.tipo;
+  document.getElementById('em-colaborador').value = m.colaborador || '';
+  document.getElementById('em-material').value = m.material;
+  document.getElementById('em-lote').value = m.lote || '';
+  document.getElementById('em-validade').value = m.validade || '';
+  document.getElementById('em-paciente').value = m.nome_paciente || '';
+  document.getElementById('em-nf').value = m.nota_fiscal || '';
+  document.getElementById('em-qtde').value = m.qtde;
+
+  document.getElementById('modal-movimentacao').hidden = false;
+}
+
+async function salvarEdicaoMovimentacao() {
+  const aviso = document.getElementById('aviso-editar-movimentacao');
+  limparAviso(aviso);
+  if (!EditandoMovimentacaoId) return;
+
+  const dados = {
+    data: document.getElementById('em-data').value,
+    turno: document.getElementById('em-turno').value || null,
+    tipo: document.getElementById('em-tipo').value,
+    colaborador: document.getElementById('em-colaborador').value.trim() || null,
+    material: document.getElementById('em-material').value.trim(),
+    lote: document.getElementById('em-lote').value.trim() || null,
+    validade: document.getElementById('em-validade').value || null,
+    destino: document.getElementById('em-destino').value || null,
+    nome_paciente: document.getElementById('em-paciente').value.trim() || null,
+    nota_fiscal: document.getElementById('em-nf').value.trim() || null,
+    qtde: Number(document.getElementById('em-qtde').value)
+  };
+
+  if (!dados.material) return mostrarAviso(aviso, 'Informe o material.');
+  if (!dados.qtde || dados.qtde <= 0) return mostrarAviso(aviso, 'Informe uma quantidade maior que zero.');
+  if (!dados.data) return mostrarAviso(aviso, 'Informe a data.');
+
+  const botao = document.getElementById('salvar-editar-movimentacao');
+  botao.disabled = true;
+  botao.textContent = 'Salvando…';
+
+  const { error } = await sb.from('movimentacao_estoque').update(dados).eq('id', EditandoMovimentacaoId);
+
+  botao.disabled = false;
+  botao.textContent = 'Salvar';
+
+  if (error) {
+    mostrarAviso(aviso, 'Não foi possível salvar. Confira as permissões.');
+    console.error('[Vettore] editar movimentação:', error);
+    return;
+  }
+
+  registrarAuditoria('movimentacao_estoque', EditandoMovimentacaoId, 'ALTERAR');
+  document.getElementById('modal-movimentacao').hidden = true;
+  EditandoMovimentacaoId = null;
   await carregarHistoricoFarmacia();
 }
 
@@ -250,6 +336,85 @@ async function excluirMovimentacaoFarmacia(id) {
   if (error) { alert('Não foi possível excluir. Confira as permissões.'); console.error('[Vettore] excluir movimentação:', error); return; }
   registrarAuditoria('movimentacao_estoque', id, 'EXCLUIR');
   await carregarHistoricoFarmacia();
+}
+
+/* -------- Sub-aba Relatório -------- */
+
+const ContextoRelatorio = { municipioId: null, unidadeId: null };
+let SALDO_MATERIAL_CACHE = [];
+
+const MESES_ABREV = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+async function carregarMunicipiosRelatorio() {
+  const sel = document.getElementById('rel-municipio');
+  const { data, error } = await sb.from('municipio').select('id, nome, uf').eq('ativo', true).order('nome');
+  if (error) { console.error('[Vettore] municípios (relatório):', error); return; }
+  sel.innerHTML = '<option value="">Selecione…</option>' +
+    (data || []).map(m => `<option value="${m.id}">${escapar(m.nome)}/${escapar(m.uf)}</option>`).join('');
+}
+
+async function carregarInstituicoesRelatorio(municipioId) {
+  const sel = document.getElementById('rel-instituicao');
+  document.getElementById('rel-conteudo').hidden = true;
+  if (!municipioId) {
+    sel.innerHTML = '<option value="">Selecione o município primeiro</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">Carregando…</option>';
+  const { data, error } = await sb.from('unidade_saude')
+    .select('id, nome, tipo').eq('municipio_id', municipioId).eq('ativo', true).order('nome');
+  if (error) { sel.innerHTML = '<option value="">Falha ao carregar</option>'; console.error('[Vettore] unidades (relatório):', error); return; }
+  sel.innerHTML = '<option value="">Selecione…</option>' +
+    (data || []).map(u => `<option value="${u.id}">${escapar(u.nome)} (${escapar(u.tipo)})</option>`).join('');
+}
+
+async function abrirUnidadeRelatorio(unidadeId) {
+  ContextoRelatorio.unidadeId = unidadeId;
+  document.getElementById('rel-conteudo').hidden = !unidadeId;
+  if (!unidadeId) return;
+  await carregarSaldoMaterial();
+  await carregarSaldoMensal();
+}
+
+function formatarQtde(n) {
+  const v = Number(n);
+  return Number.isInteger(v) ? v.toString() : v.toFixed(2);
+}
+
+async function carregarSaldoMaterial() {
+  const corpo = document.getElementById('rel-corpo-material');
+  const { data, error } = await sb.rpc('farmacia_saldo_material', { p_unidade_saude_id: ContextoRelatorio.unidadeId });
+  if (error) { corpo.innerHTML = '<tr><td colspan="4">Não foi possível carregar.</td></tr>'; console.error('[Vettore] saldo material:', error); return; }
+  SALDO_MATERIAL_CACHE = data || [];
+  renderSaldoMaterial();
+}
+
+function renderSaldoMaterial() {
+  const corpo = document.getElementById('rel-corpo-material');
+  const busca = (document.getElementById('rel-busca-material').value || '').toUpperCase();
+  const linhas = SALDO_MATERIAL_CACHE.filter(l => l.material.toUpperCase().includes(busca));
+
+  corpo.innerHTML = linhas.map(l => `
+    <tr>
+      <td>${escapar(l.material)}</td>
+      <td>${formatarQtde(l.entradas)}</td>
+      <td>${formatarQtde(l.saidas)}</td>
+      <td class="${Number(l.saldo) < 0 ? 'tag-saida' : 'tag-entrada'}">${formatarQtde(l.saldo)}</td>
+    </tr>`).join('') || '<tr><td colspan="4">Nenhum material encontrado.</td></tr>';
+}
+
+async function carregarSaldoMensal() {
+  const corpo = document.getElementById('rel-corpo-mensal');
+  const { data, error } = await sb.rpc('farmacia_saldo_mensal', { p_unidade_saude_id: ContextoRelatorio.unidadeId });
+  if (error) { corpo.innerHTML = '<tr><td colspan="4">Não foi possível carregar.</td></tr>'; console.error('[Vettore] saldo mensal:', error); return; }
+
+  corpo.innerHTML = (data || []).map(l => `
+    <tr>
+      <td>${MESES_ABREV[l.mes]}/${l.ano}</td>
+      <td>${formatarQtde(l.entradas)}</td>
+      <td>${formatarQtde(l.saidas)}</td>
+      <td class="${Number(l.saldo) < 0 ? 'tag-saida' : 'tag-entrada'}">${formatarQtde(l.saldo)}</td>
+    </tr>`).join('') || '<tr><td colspan="4">Nenhuma movimentação registrada ainda.</td></tr>';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -263,7 +428,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('farm-instituicao')?.addEventListener('change', e =>
     abrirUnidadeFarmacia(e.target.value || null));
   document.getElementById('farm-salvar')?.addEventListener('click', salvarMovimentacaoFarmacia);
+  document.getElementById('salvar-editar-movimentacao')?.addEventListener('click', salvarEdicaoMovimentacao);
   document.getElementById('farm-historico')?.addEventListener('click', e => {
+    const botaoEditar = e.target.closest('[data-editar-movimentacao]');
+    if (botaoEditar) return editarMovimentacaoFarmacia(botaoEditar.dataset.editarMovimentacao);
     const botao = e.target.closest('[data-excluir-movimentacao]');
     if (botao) excluirMovimentacaoFarmacia(botao.dataset.excluirMovimentacao);
   });
@@ -275,4 +443,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const botao = e.target.closest('[data-excluir-material]');
     if (botao) excluirMaterialFarmacia(botao.dataset.excluirMaterial);
   });
+
+  document.getElementById('rel-municipio')?.addEventListener('change', e => {
+    ContextoRelatorio.municipioId = e.target.value || null;
+    carregarInstituicoesRelatorio(ContextoRelatorio.municipioId);
+  });
+  document.getElementById('rel-instituicao')?.addEventListener('change', e =>
+    abrirUnidadeRelatorio(e.target.value || null));
+  document.getElementById('rel-busca-material')?.addEventListener('input', renderSaldoMaterial);
 });
